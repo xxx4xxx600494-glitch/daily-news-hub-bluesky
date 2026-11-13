@@ -1,0 +1,36 @@
+name: bluesky-rss-post
+
+on:
+  schedule:
+    # Run twice daily — 08:00 UTC and 20:00 UTC
+    - cron: "0 8,20 * * *"
+  workflow_dispatch:  # Allows manual trigger from GitHub UI
+
+jobs:
+  post-to-bluesky:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Run Bluesky poster script
+        env:
+          BLOG_RSS_URL: ${{ secrets.BLOG_RSS_URL }}
+          BLUESKY_HANDLE: ${{ secrets.BLUESKY_HANDLE }}
+          BLUESKY_APP_PASSWORD: ${{ secrets.BLUESKY_APP_PASSWORD }}
+        run: python -I bluesky-rss-post/post_to_bluesky.py
+
+      - name: Commit posted.json if changed
+        run: |
+          git diff --quiet && git diff --staged --quiet || {
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add bluesky-rss-post/posted.json
+            git commit -m "chore(bluesky): update posted GUIDs [skip ci]" || true
+            git push || echo "No changes to push"
+          }
